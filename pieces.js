@@ -1,12 +1,28 @@
 //function pour générer des avis
-import { ajoutListenersAvis } from "./avis.js";
+import { ajoutListenersAvis, ajoutListenerEnvoyerAvis, afficherAvis } from "./avis.js";
 
-// Récupération des pièces depuis le fichier JSON
-const pieces = await fetch("pieces-autos.json").then(pieces => pieces.json() );
+//Récupération des pièces eventuellement stockées dans le localStorage
+let pieces = window.localStorage.getItem('pieces');
+
+if (pieces === null){
+   // Récupération des pièces depuis l'API
+   const reponse = await fetch('http://localhost:8081/pieces/');
+   pieces = await reponse.json();
+   // Transformation des pièces en JSON
+   const valeurPieces = JSON.stringify(pieces);
+   // Stockage des informations dans le localStorage
+   window.localStorage.setItem("pieces", valeurPieces);
+}else{
+   pieces = JSON.parse(pieces);
+}
+
+// on appelle la fonction pour ajouter le listener au formulaire
+ajoutListenerEnvoyerAvis()
 
 //Fonction qui génère toute la page web
 function genererPieces(pieces) {
     for (let i = 0; i < pieces.length; i++){
+        const article = pieces[i];
         //Rattachement de nos balises au DOM (ici la class : fiches)
         const sectionFiches = document.querySelector(".fiches");
         // Création d’une balise dédiée à une pièce automobile
@@ -14,23 +30,29 @@ function genererPieces(pieces) {
         // On crée l’élément img.
         const imageElement = document.createElement("img");
         // On accède à l’indice i de la liste pieces pour configurer la source de l’image.
-        imageElement.src = pieces[i].image;
+        imageElement.src = article.image;
     
         const nomElement = document.createElement("h2");
-        nomElement.innerText = pieces[i].nom;
+        nomElement.innerText = article.nom;
     
         const prixElement = document.createElement("p");
-        prixElement.innerText = `Prix: ${pieces[i].prix} € (${pieces[i].prix < 35 ? "€" : "€€€"})`;
+        prixElement.innerText = `Prix: ${article.prix} € (${article.prix < 35 ? "€" : "€€€"})`;
     
         const categorieElement = document.createElement("p");
-        categorieElement.innerText = pieces[i].categorie ?? "(aucune catégorie)";
+        categorieElement.innerText = article.categorie ?? "(aucune catégorie)";
     
         const descriptionElement = document.createElement("p");
-        descriptionElement.innerText = pieces[i].description ?? "Pas de description pour le moment.";
+        descriptionElement.innerText = article.description ?? "Pas de description pour le moment.";
     
         const StockElement = document.createElement("p");
-        StockElement.innerText = pieces[i].disponibilite ? "En stock" : "Rupture de stock";
-    
+        StockElement.innerText = article.disponibilite ? "En stock" : "Rupture de stock";
+        
+        //Bouttons "avis" sur chaque fiche produit
+        const avisBouton = document.createElement("button");
+        avisBouton.dataset.id = article.id;
+        avisBouton.textContent = "Afficher les avis";
+        //console.log(avisBouton)
+
         // On rattache la balise article à la section Fiches
         sectionFiches.appendChild(pieceElement);
         // On rattache l’image à pieceElement (la balise article)
@@ -41,6 +63,7 @@ function genererPieces(pieces) {
         pieceElement.appendChild(categorieElement);
         pieceElement.appendChild(descriptionElement);
         pieceElement.appendChild(StockElement);
+        pieceElement.appendChild(avisBouton);
     }
 
     // Ajout de la fonction ajoutListenersAvis
@@ -49,6 +72,18 @@ function genererPieces(pieces) {
 
 //Premier affichage de la page
 genererPieces(pieces);
+
+for (let i = 0; i < pieces.length; i++){
+    const id = pieces[i].id;
+    // recuperation des donnees enregistrees au prealable (setItem)
+    const avisJSON = window.localStorage.getItem(`avis-piece-${id}`);
+    const avis = JSON.parse(avisJSON);
+
+    if (avis !== null){
+        const pieceElement = document.querySelector(`article[data-id="${id}"]`); //data-id peut etre utilisé grace à avisBouton.dataset.id = article.id
+        afficherAvis(pieceElement, avis);
+    }
+}
 
 
 /*********************************************
@@ -61,7 +96,7 @@ const boutonTrier = document.querySelector(".btn-trier");
 boutonTrier.addEventListener("click", function () {
     const piecesOrdonnees = Array.from(pieces);
     piecesOrdonnees.sort( (a, b) => a.prix - b.prix);
-    console.log(piecesOrdonnees);
+    //console.log(piecesOrdonnees);
 
     // Effacement de l'écran et regénération de la page
     document.querySelector(".fiches").innerHTML = "";
@@ -85,7 +120,7 @@ const boutonNoDescription = document.querySelector(".btn-nodesc");
 
 boutonNoDescription.addEventListener("click", function () {
    const piecesFiltrees = pieces.filter(piece => piece.description);
-   console.log(piecesFiltrees);
+   //console.log(piecesFiltrees);
    
    // Effacement de l'écran et regénération de la page
     document.querySelector(".fiches").innerHTML = "";
@@ -99,7 +134,7 @@ const boutonDecroissant = document.querySelector(".btn-decroissant");
 boutonDecroissant.addEventListener("click", function () {
     const piecesOrdonnees = Array.from(pieces);
     piecesOrdonnees.sort((a, b) => b.prix - a.prix);
-    console.log(piecesOrdonnees);
+    //console.log(piecesOrdonnees);
 
     // Effacement de l'écran et regénération de la page
     document.querySelector(".fiches").innerHTML = "";
@@ -120,7 +155,7 @@ for(let i = pieces.length -1 ; i >= 0; i--) {
     }
  }
  
- console.log(noms);
+ //console.log(noms);
 
 const pElement = document.createElement('p')
 pElement.innerText = "Pièces abordables";
@@ -174,5 +209,13 @@ inputPrixMax.addEventListener('input', function () {
 
     document.querySelector(".fiches").innerHTML = "";
     genererPieces(piecesFiltrees);
+});
+
+
+// Ajout du listener pour mettre à jour des données du localStorage
+const boutonMettreAJour = document.querySelector(".btn-maj");
+
+boutonMettreAJour.addEventListener("click", function () {
+    window.localStorage.removeItem("pieces");
 });
 
